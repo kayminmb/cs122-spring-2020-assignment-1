@@ -1,0 +1,262 @@
+---
+title: "CS112 - R Competency & Drivetrain Model Assignment"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+Assignment answers begin on line 71
+```{r}
+### Multilateral Development Institution Data
+foo <- read.csv("https://tinyurl.com/yb4phxx8") # read in the data
+
+# column names
+names(foo)
+
+# dimensions of the data set
+dim(foo)
+
+# quick look at the data structure
+head(foo)
+
+# one thing to be very careful with (in this data set) is the use of dates. 8 columns involve dates.
+
+# take note of the columns representing calendar dates
+date.columns <- c(11, 12, 14, 15, 16, 17, 18, 25)
+
+# these columns need some tweaking--I want to address missing values, calling the blank (empty) 
+# elements "NA" instead of leaving them blank, and I wish to tell R these are "Date" objects.
+
+for(i in date.columns)  # this "for loop" only loops through the "date.columns" -- no other columns.
+
+  {
+  
+  # identify which values are missing in the "i"th column of the foo data set
+  which_values_are_missing <- which(as.character(foo[, i]) == "")
+  
+  # those values that are missing (blank) in the "i"th column are replaced by <NA>
+  # because R knows how to handle "NA" -- NA means something special in R--blanks are handled 
+  # more unpredictably (which is bad).
+  foo[which_values_are_missing, i] <- NA
+  
+  # last step--replace each of these columns (which is structured as a column of "factor" values)
+  # as a column of dates--i.e., convert them to an object of "class" = Date. They are dates, after all.
+  # And if you convert them to the Date class, R will know they are dates and you can manipulate 
+  # dates in a simple, straightforward way. Otherwise, you won't be able to easily manipulate them
+  # arithmetically.  E.g., for simple Date operations, see lines 48-58 below...
+  # **By the way, if you don't understand what a "factor" is in R, you should Google it.** 
+  foo[, i] <- as.Date(as.character(foo[, i]))
+
+  }
+
+# Now R knows that these columns are comprised of dates
+# for example...  Replicate this yourself...
+
+foo[3,12]
+# [1] "1968-03-13"
+
+foo[4,12]
+# [1] "1968-07-03"
+
+foo[3,12] - foo[4,12]
+# Time difference of -112 days
+
+# Also, one additional helpful hint... How to eliminate rows with NAs...
+# The "is.na" function--for more info, Google it or type ?is.na at the R command prompt in the console.
+which.have.NAs <- which(is.na(foo$Rating == TRUE)) # for which rows is the claim "is.na" a TRUE claim?
+
+# Then, if you wanted to, e.g., remove all those rows, retaining only the rows with ratings...
+new_foo <- foo[-which.have.NAs, ]
+# Notice I called this tweaked data set "new_foo" instead of rewriting over the original data set...
+# It's a bit safer to do this, in case I decide I want to quickly revert back to the original data set.
+```
+
+## Assignment Answers
+### Preliminary Work
+```{r}
+#CLEANING DATA
+#selecting rows where is.na is TRUE
+which.have.circulation.NAs <- which(is.na(new_foo$CirculationDate == TRUE))
+
+#retain only rows with a circulation date
+with.circulation.new_foo <- new_foo[-which.have.circulation.NAs, ]
+
+#saving selection of circulation date >= 2008-01-01 to working.foo
+working.foo <- subset(new_foo, new_foo$CirculationDate >= "2008-01-01")
+
+working.foo
+
+colnames(working.foo)
+```
+### Question 1
+_(1) When projects are approved, they are approved for a certain period of time (until the time of "original completion date"). While projects are active, this "original" completion date is often pushed out (extended), and then there is a "revised" completion date_
+
+_You have been told that project duration at approval is generally about 1.5 years (18 months). In other words, (purportedly) when projects are approved, the difference between the original project completion date and the the approval date is (supposedly) approximately 18 months._
+
+_(a) Is this claim true? Explain. (Remember, for this ENTIRE assignment, only consider projects with Circulation.Date >= 2008-01-01.)_
+
+```{r}
+# mean of differences between original completion date and approval date. Skip NA
+mean(working.foo[ , 17] - working.foo[ , 11], na.rm = T)
+```
+
+> The claim that the mean project duration at approval is 1.5 years is not very accurate. For projects after 2008-01-01, the average project duration at approval is in fact 644 days (643.5879) or 1.76 years.
+
+_Has project duration at approval changed over time (consider projects circulated earlier vs. and circulated later). You can interpret 'earlier' as 'first 5 years' and 'later' as 'last 5 years'. Be sure to discuss mean durations, median durations, and the interquartile range of durations (using the "quantile" function)._
+
+```{r}
+# Earlier: < 2014-01-01, Later: >= 2014-01-01
+early.projects <- subset(working.foo, working.foo$CirculationDate < "2014-01-01")
+late.projects <- subset(working.foo, working.foo$CirculationDate >= "2014-01-01")
+
+print("Early Projects")
+#calculate project duration at approval for early projects
+mean(early.projects[ , 17] - early.projects[ , 11], na.rm = T)
+
+#median for early projects
+median(early.projects[ , 17] - early.projects[ , 11], na.rm = T)
+
+#interquartile range for early projects
+quantile(early.projects[ , 17] - early.projects[ , 11], na.rm = T)
+
+print("Late Projects")
+#calculate project duration at approval for early projects
+mean(late.projects[ , 17] - late.projects[ , 11], na.rm = T)
+
+#median for late projects
+median(late.projects[ , 17] - late.projects[ , 11], na.rm = T)
+
+#interquartile range for late projects
+quantile(late.projects[ , 17] - late.projects[ , 11], na.rm = T)
+
+late.p.durations <- late.projects[ , 17] - late.projects[ , 11]
+early.p.durations <- early.projects[ , 17] - early.projects[ , 11]
+
+```
+
+> The mean, median and interquantile range results for early and late projects depict that the duration at approval has increased over time. We can observe that both the mean and median project durations are longer for projects post 2014-01-01. The IQR for early projects is 388. For late projects, the IQR is 336. The mean and median discrepancies depict that there is a difference between early and late projects durations but further tests should be carried out to determine significance.
+
+_(b) How does original planned project duration differ from actual duration (if actual duration is measured as the duration between "ApprovalDate" and "RevisedCompletionDate"?)  Once again, use means, medians, and interquartile ranges to explain your results by:comparing the means, medians, and IQRs of planned durations vs. same metrics for actual durations AND estimating the means, medians, and IQRs of the project-level discrepancies btw planned and actual durations. Approximate suggested length: 3-8 sentences_
+
+```{r}
+print("Actual Duration")
+#calculate project duration at approval for early projects
+mean(early.projects[ , 18] - early.projects[ , 11], na.rm = T)
+
+#median for early projects
+median(early.projects[ , 18] - early.projects[ , 11], na.rm = T)
+
+#interquartile range for early projects
+quantile(early.projects[ , 18] - early.projects[ , 11], na.rm = T)
+
+print("Discrepancy")
+
+working.foo$revised <- (working.foo$RevisedCompletionDate - working.foo$ApprovalDate)
+
+working.foo$original <- (working.foo$OriginalCompletionDate - working.foo$ApprovalDate)
+
+working.foo$discrepancy <- working.foo$revised - working.foo$original 
+
+mean(working.foo$discrepancy, na.rm = T)
+median(working.foo$discrepancy, na.rm = T)
+quantile(working.foo$discrepancy, na.rm = T)
+cat("The interquantile range for the discrepancy is", quantile(working.foo$discrepancy, 0.75, na.rm = T), "-", quantile(working.foo$discrepancy, 0.25, na.rm = T), "=", quantile(working.foo$discrepancy, 0.75, na.rm = T) - quantile(working.foo$discrepancy, 0.25, na.rm = T) ,"days")
+```
+
+The results of the actual duration analysis depict that projects actually last an average of 1199 days with a median of 1112 days. The actual project duration, on average, doubles what the assumed average project duration was (18 months). Lastly, an IQR of 632 depicts that the data is skewed towards the left - possibly with some low project duration outliers. The results of the discrepancy analysis depict that projects often last longer than their original completion date. We can see that the mean and median discrepancy is 573 and 485 days respectively. The IQR of 517 days tells us that the data is quite evenly spread around mean. 
+
+### Question 2
+
+_(2) What % of projects that have ratings were rated 0? What % were rated 1? What % were rated 2? What % were rated 3? Answer these questions using a table or a figure. Provide a title AND an explanatory sentence or two that provides the numerical % results rounded to the nearest percentage-point._
+
+```{r}
+#subset rows with rating of 0, get row count and divide by total number of rows. Repeat for ratings of 1, 2 and 3
+percentage.zero.rate <- nrow(subset(working.foo, Rating == 0)) / nrow(working.foo) * 100
+
+percentage.one.rate <- nrow(subset(working.foo, Rating == 1)) / nrow(working.foo) * 100
+
+percentage.two.rate <- nrow(subset(working.foo, Rating == 2)) / nrow(working.foo) * 100
+
+percentage.three.rate <- nrow(subset(working.foo, Rating == 3)) / nrow(working.foo) * 100
+
+```
+Rating  | Percentage of dataset
+------------- | -------------
+0  | `r {round(percentage.zero.rate)}`%
+1  | `r {round(percentage.one.rate)}`%
+2  | `r {round(percentage.two.rate)}`%
+3  | `r {round(percentage.three.rate)}`%
+**Total**  | **`r sum(percentage.zero.rate, percentage.one.rate, percentage.two.rate, percentage.three.rate)`** 
+
+```{r}
+#create pie chart
+slices <- c(percentage.zero.rate, percentage.one.rate, percentage.two.rate, percentage.three.rate)
+lbls <- c("0", "1", "2", "3")
+pie(slices, labels = lbls, main="Spread of ratings")
+```
+
+At 68%, most of the projects were rated at a level 2. Levels 0, 1 and 3 made up 3%, 16% and 13% respectively.
+
+### Question 3
+
+_(3) Repeat problem 2, but this time exclude all PPTA projects. PPTA projects are more prone to negative ratings, because after a certain point in time only the low-rated PPTA projects required ratings.  PPTA stands for "Project Preparatory Technical Assistance" and it is basically a project intended to set up a loan (often a very large multi-million-dollar loan). Only PPTAs that fail to "eventuate" to a loan are rated, which is why they are usually rated negatively_
+
+```{r}
+#subset working.foo where type is not equal to PPTA
+working.foo.non.ppta <- subset(working.foo, Type != "PPTA")
+
+#subset rows with rating of 0, get row count and divide by total number of rows. Repeat for ratings of 1, 2 and 3
+percentage.zero.rate.non.ppta <- nrow(subset(working.foo.non.ppta, Rating == 0)) / nrow(working.foo.non.ppta) * 100
+
+percentage.one.rate.non.ppta <- nrow(subset(working.foo.non.ppta, Rating == 1)) / nrow(working.foo.non.ppta) * 100
+
+percentage.two.rate.non.ppta <- nrow(subset(working.foo.non.ppta, Rating == 2)) / nrow(working.foo.non.ppta) * 100
+
+percentage.three.rate.non.ppta <- nrow(subset(working.foo.non.ppta, Rating == 3)) / nrow(working.foo.non.ppta) * 100
+```
+
+Rating  | Percentage of dataset
+------------- | -------------
+0  | `r {round(percentage.zero.rate.non.ppta)}`%
+1  | `r {round(percentage.one.rate.non.ppta)}`%
+2  | `r {round(percentage.two.rate.non.ppta)}`%
+3  | `r {round(percentage.three.rate.non.ppta)}`%
+**Total**  | **`r sum(percentage.zero.rate.non.ppta, percentage.one.rate.non.ppta, percentage.two.rate.non.ppta, percentage.three.rate.non.ppta)`**
+
+```{r}
+#create pie chart
+slices <- c(percentage.zero.rate.non.ppta, percentage.one.rate.non.ppta, percentage.two.rate.non.ppta, percentage.three.rate.non.ppta)
+lbls <- c("0", "1", "2", "3")
+pie(slices, labels = lbls, main="Spread of ratings without PPTA")
+```
+
+At 70%, most of the projects were rated at a level 2. Levels 0, 1 and 3 made up 2%, 14% and 14% respectively.
+
+### Question 4
+_(4) Identify the top 25% of projects by "Revised.Amount" and the bottom 25% of projects by "RevisedAmount". ("RevisedAmount" shows the final project budget.) Compare the ratings of these projects. Can you draw a causal conclusion about the effect of budget size on ratings? Why or why not? Hint: Compare the characteristics of the two project groupings, e.g., "Dept", "Division", "Cluster", "Country"Approximate suggested length: 3-5 sentences._
+
+```{r}
+#order working.foo based on revised amount (lowest first), select top 25% of total rows in
+bottom.revised.amount <- subset(working.foo, working.foo$RevisedAmount <= quantile(working.foo$RevisedAmount, 0.25))
+#head(working.foo[order(working.foo$RevisedAmount,decreasing=F),],.25*nrow(working.foo))
+
+#order working.foo based on revised amount (highest first), select top 25% of total rows in
+top.revised.amount <- subset(working.foo, working.foo$RevisedAmount >= quantile(working.foo$RevisedAmount, 0.75)) #head(working.foo[order(working.foo$RevisedAmount,decreasing=T),],.25*nrow(working.foo))
+
+#perform t test
+t.test(top.revised.amount$Rating, bottom.revised.amount$Rating)
+
+```
+
+We cannot draw a causal conclusion about the effect of budget size on ratings because the characteristics of the two project groups are not held constant. To draw a causal conclusion using these two groups, all variables except for the independent variable of interest (budget) need to be controlled. This were randomization in the RCT becomes useful. The p value is not statistically significant so we are not able to draw a causal conclusion.
+
+### Question 5
+_(5) Imagine your manager asks you to apply Jeremy Howard's drivetrain model to the problem of optimal budget-setting to maximize project success (i.e., "Rating"). In such a situation, what would be the:(a) decision problem or objective? (b) lever or levers? (c) ideal RCT design? (d) dependent variable(s) and independent variable(s) in the modeler (e) And---Why would running RCTs and modeling/optimizing over RCT results be preferable to using (observational, non-RCT) "foo" data? Approximate suggested length: 1-3 sentences for each sub-question_
+
+a) Decision problem: Based on the scenario, there might be multiple decision problems. For example, we could observe what the best budget is for a particular country to maximize its rating. We could also observe what the rating-maximizing budget is for any particular set of project characteristics is. Lastly, we could want to know how to tell the difference 
+Objective: Maximize the number of projects with a rating of 3. (There is a lack of meta-data/explanation for this dataset; however, I assume that the goal of the organization to maximize the outcome of their projects which is indicated via the rating.)
+b) Lever: The budget allocated to each project. Essentially, the optimizer will continually change the budget for each project and record what happens to the object (rating). The budget lever will be continually "pulled" until the optimizer has maxed out the rating.
+c) Ideal RCT: I would randomly assign different budgets to each project. The randomzation of the data helps draw causal conclusions. Once I have randomly assigned budgets, I would put the outcomes (rating) with the characteristics through an optimizer. A control group in this experiment is likely redundant because observing a project with no budget may lead to no outcome. 
+d) Dependent variables: Rating Score. Independent variable: Budget.
+e) Running an RCT and modeling/optimization is beneficial to an observational study because we may make conclusions based on a correlation and not causation. Due to the complexity of the real world, with its many confounding variables, an RCT helps be more confident in drawing causal conclusions.
+
+
